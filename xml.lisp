@@ -15,14 +15,18 @@
 
 (defmacro define-xml-language (name &body element-defs)
   (let ((block-elements (cdr (assoc :block-elements element-defs)))
-	(paragraph-elements (cdr (assoc :paragraph-elements element-defs))))
+        (paragraph-elements (cdr (assoc :paragraph-elements element-defs)))
+        (preserve-whitespace-elements (cdr (assoc :preserve-whitespace element-defs))))
     `(progn
        (define-language ,name xml)
        (defmethod top-level-environment ((language ,name))
-	 (new-env
-	  'block-elements ',block-elements
-	  (new-env 
-	   'paragraph-elements ',paragraph-elements (call-next-method)))))))
+         (new-env
+          'block-elements ',block-elements
+          (new-env 
+           'paragraph-elements ',paragraph-elements
+           (new-env
+            'preserve-whitespace-elements ',preserve-whitespace-elements
+            (call-next-method))))))))
 
 (defparameter *element-escapes* "<>&")
 
@@ -103,7 +107,7 @@
   (raw-string processor (format nil "<~a" (funcall (name-converter language) tag)))
   (emit-attributes language processor attributes environment)
   (raw-string processor
-	      (if (or body-p (non-empty-element-p tag environment)) ">" "/>")))
+              (if (or body-p (non-empty-element-p tag environment)) ">" "/>")))
 
 (defmethod emit-attributes ((language xml) processor attributes environment)
   (loop for (k v) on attributes by #'cddr do
@@ -154,7 +158,10 @@
   (environment-value 'in-attribute env))
 
 (defun block-element-p (tag env) 
-  (find tag (environment-value 'block-elements env)))
+  (let ((be (environment-value 'block-elements env)))
+    (or 
+     (find tag be)
+     (and (= 1 (length be)) (eql (first be) t)))))
 
 (defun paragraph-element-p (tag env) 
   (find tag (environment-value 'paragraph-elements env)))
@@ -180,9 +187,9 @@
     `(define-macro ,name xml-macro (&whole ,form &body ,all)
        (declare (ignore ,all))
        (multiple-value-bind (,tag ,attributes ,tag-body) (parse-cons-form ,form)
-	 (declare (ignore ,tag))
-	 (destructuring-bind (,@parameters) ,tag-body
-	   ,@body)))))
+         (declare (ignore ,tag))
+         (destructuring-bind (,@parameters) ,tag-body
+           ,@body)))))
 
 (defun parse-xml-macro-lambda-list (args)
   (let ((attr-cons (member '&attributes args)))
