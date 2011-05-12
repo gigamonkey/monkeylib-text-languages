@@ -219,7 +219,7 @@ parameter list without it and the name of the parameter."
      (values
       (nconc (ldiff parameters cons) (cddr cons))
       (cadr cons))
-     (values parameters (make-symbol (symbol-name '&environment))))))
+     (values parameters (make-symbol (symbol-name 'no-environment))))))
 
 (defun normalize-macro-lambda-list (parameters namevar)
   "Create a destructuring-lambda list that can parse a whole
