@@ -22,15 +22,13 @@
        (defmethod top-level-environment ((language ,name))
          (new-env
           'block-elements ',block-elements
-          (new-env 
+          (new-env
            'paragraph-elements ',paragraph-elements
            (new-env
             'preserve-whitespace-elements ',preserve-whitespace-elements
             (call-next-method))))))))
 
 (defparameter *element-escapes* "<>&")
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public API
@@ -117,14 +115,14 @@
 
 (defmethod emit-element-body ((language xml) processor tag body environment)
   (when (block-element-p tag environment)
-    (freshline processor)
+    (unless (preserve-whitespace-p tag environment) (freshline processor))
     (indent processor))
   (when (preserve-whitespace-p tag environment) (toggle-indenting processor))
   (dolist (item body)  (process language processor item environment))
   (when (preserve-whitespace-p tag environment) (toggle-indenting processor))
   (when (block-element-p tag environment)
     (unindent processor)
-    (freshline processor)))
+    (unless (preserve-whitespace-p tag environment) (freshline processor))))
 
 (defmethod emit-close-tag ((language xml) processor tag body-p environment)
   (when (or body-p (non-empty-element-p tag environment))
@@ -157,13 +155,13 @@
 (defun in-attribute-p (env)
   (environment-value 'in-attribute env))
 
-(defun block-element-p (tag env) 
+(defun block-element-p (tag env)
   (let ((be (environment-value 'block-elements env)))
-    (or 
+    (or
      (find tag be)
      (and (= 1 (length be)) (eql (first be) t)))))
 
-(defun paragraph-element-p (tag env) 
+(defun paragraph-element-p (tag env)
   (find tag (environment-value 'paragraph-elements env)))
 
 (defun preserve-whitespace-p (tag env)
@@ -193,7 +191,7 @@
 
 (defun parse-xml-macro-lambda-list (args)
   (let ((attr-cons (member '&attributes args)))
-    (values 
+    (values
      (cadr attr-cons)
      (nconc (ldiff args attr-cons) (cddr attr-cons)))))
 

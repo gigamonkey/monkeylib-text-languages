@@ -28,8 +28,7 @@
    (:file "javascript"       :depends-on ("packages" "language"))
    (:file "lispscript"       :depends-on ("packages" "language" "javascript" "html"))
    (:file "lispscript-tests" :depends-on ("packages" "lispscript" "html" "html-macros" "html-legacy")))
-  :depends-on (:com.gigamonkeys.macro-utilities  
+  :depends-on (:com.gigamonkeys.macro-utilities
 	       :com.gigamonkeys.test-framework
 	       :com.gigamonkeys.pathnames
 	       :com.gigamonkeys.utilities))
-
