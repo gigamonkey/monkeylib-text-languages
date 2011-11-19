@@ -1,4 +1,6 @@
-(in-package :com.gigamonkeys.foo)
+;;; Copyright (c) 2005-2001, Peter Seibel. All rights reserved. See COPYING for details.
+
+(in-package :text-languages)
 
 (defun generate-from-file (language input &optional output)
   (unless output
@@ -17,8 +19,8 @@
   (let ((*readtable* (input-readtable language))
 	(*package* (input-package language))
 	(env (top-level-environment language)))
-    (with-foo-output (out :pretty t)
-      (loop with processor = (get-pretty-printer) 
+    (with-text-output (out :pretty t)
+      (loop with processor = (get-pretty-printer)
 	 for form = (read in nil in)
 	 while (not (eql form in)) do
 	   (process language processor form env)
@@ -28,7 +30,7 @@
 (defun generate-from-sexp (language sexp)
   (with-output-to-string (out)
     (let ((env (top-level-environment language)))
-      (with-foo-output (out :pretty t)
+      (with-text-output (out :pretty t)
 	(let ((processor (get-pretty-printer)))
 	  (process language processor sexp env))))))
 

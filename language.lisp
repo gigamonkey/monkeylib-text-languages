@@ -1,38 +1,37 @@
-;;
-;; Copyright (c) 2005, Gigamonkeys Consulting All rights reserved.
-;;
+;;; Copyright (c) 2005-2001, Peter Seibel. All rights reserved. See COPYING for details.
 
-(in-package :com.gigamonkeys.foo.language)
+(in-package :text-languages)
 
 ;;; Hmmmm. Might be useful to support symbol macros.
 
 (defclass language ()
   ((special-operator-symbol
     :initarg :special-operator-symbol
-    :accessor special-operator-symbol)
+    :accessor special-operator-symbol
+    :documentation "symbol added to a symbol's plist to indicate it
+    has been defined as a macro in LANGUAGE.")
    (macro-symbol
     :initarg :macro-symbol
-    :accessor macro-symbol)
+    :accessor macro-symbol
+    :documentation "the symbol added to a symbol's plist to indicate
+    it has been defined as a macro in LANGUAGE.")
    (input-readtable
     :initarg :input-readtable
-    :accessor input-readtable)
+    :accessor input-readtable
+    :documentation "readtable we should use to read the input file.")
    (input-package
     :initarg :input-package
-    :accessor input-package)
+    :accessor input-package
+    :documentation "package we should use to read the input file.")
    (output-file-type
     :initarg :output-file-type
-    :accessor output-file-type)))
+    :accessor output-file-type
+    :documentation "file suffix for generated files.")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Primary interface
 
-(defgeneric special-operator-symbol (language)
-  (:documentation "Return the symbol added to a symbol's plist to
-  indicate it is the name of a special operator in LANGUAGE."))
-
-(defgeneric macro-symbol (language)
-  (:documentation "Return the symbol added to a symbol's plist to
-  indicate it has been defined as a macro in LANGUAGE."))
+;; special-operator-symbol, macro-symbol, and ...
 
 (defgeneric identifier (language form)
   (:documentation "Extract a symbol that identifies the form."))
@@ -61,21 +60,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; File compiler interface
 
+;; input-readtable, input-package, output-file-type and ...
+
 (defgeneric comment (language text)
   (:documentation "Return text as a comment."))
 
-(defgeneric input-readtable (language)
-  (:documentation "The readtable we should use to read the input file."))
-
-(defgeneric input-package (language)
-  (:documentation "The package we should use to read the input file."))
-
 (defgeneric top-level-environment (language)
   (:documentation "Environment for evaluating top-level forms."))
-
-(defgeneric output-file-type (language)
-  (:documentation "File suffix for generated files."))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Null implementation of processor interface -- this is used for
@@ -189,7 +180,7 @@ characters will need their own specializations of this method."
 		   (error (e)
 		     (error 'foo-syntax-error :form ,whole :cause e)))))))))
 
-(define-condition foo-syntax-error () 
+(define-condition foo-syntax-error ()
   ((form :initarg :form :accessor form-of)
    (cause :initarg :cause :accessor cause-of :initform nil)))
 
@@ -262,7 +253,7 @@ parameter to eat up the macro name."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helpers for top-level language functions and macros.
 
-(defun emit-for-language (language-class sexp) 
+(defun emit-for-language (language-class sexp)
   (let ((lang (make-instance language-class)))
     (process lang (get-pretty-printer) sexp (top-level-environment lang))))
 
@@ -275,7 +266,7 @@ parameter to eat up the macro name."
 (defmacro define-language-macro (name)
   `(defmacro ,name (&whole whole &body body)
      (declare (ignore body))
-     `(macrolet ((,(car whole) (&body body) 
+     `(macrolet ((,(car whole) (&body body)
 		   (let* ((lang (make-instance ',(car whole)))
 			  (env (top-level-environment lang)))
 		     (codegen-text (sexp->ops lang body env) ,*pretty*))))
