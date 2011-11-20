@@ -1,24 +1,29 @@
 ;;; Copyright (c) 2005-2001, Peter Seibel. All rights reserved. See COPYING for details.
 
-(in-package :text-languages)
+(in-package :monkeylib-text-languages)
 
 ;;; Hmmmm. Might be useful to support symbol macros.
 
 (defclass language ()
-  ((special-operator-symbol
-    :initarg :special-operator-symbol
-    :accessor special-operator-symbol
-    :documentation "symbol added to a symbol's plist to indicate it
-    has been defined as a macro in LANGUAGE.")
-   (macro-symbol
-    :initarg :macro-symbol
-    :accessor macro-symbol
-    :documentation "the symbol added to a symbol's plist to indicate
-    it has been defined as a macro in LANGUAGE.")
+  ((special-operator-symbols
+    :initform ()
+    :accessor special-operator-symbols
+    :documentation "symbols added to a symbol's plist to indicate it
+    has been defined as a macro in LANGUAGE. These will typically be
+    pushed onto this list in an :after method on initialize-instance
+    so they are ordered the same as the class precedence list.")
+   (macro-symbols
+    :initform ()
+    :accessor macro-symbols
+    :documentation "symbols added to a symbol's plist to indicate it
+    has been defined as a macro in LANGUAGE. These will typically be
+    pushed onto this list in an :after method on initialize-instance
+    so they are ordered the same as the class precedence list.")
    (input-readtable
     :initarg :input-readtable
     :accessor input-readtable
-    :documentation "readtable we should use to read the input file.")
+    :documentation "readtable we should use to read the input files in
+    this language.")
    (input-package
     :initarg :input-package
     :accessor input-package
@@ -31,7 +36,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Primary interface
 
-;; special-operator-symbol, macro-symbol, and ...
+;; special-operator-symbols, macro-symbols, and ...
 
 (defgeneric identifier (language form)
   (:documentation "Extract a symbol that identifies the form."))
@@ -48,14 +53,21 @@
   (:documentation "The basic evaluation rule for the language,
   after special operators and macro forms have been handled."))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Secondary interface -- these are typically implemented in terms of
-;;; the primary interface.
+;;; the primary interface but it may be possible that for some
+;;; language it would be desirable to provide more specific
+;;; implemenations.
 
 (defgeneric special-form-p (language form)
-  (:documentation "Is the given form a special form in language."))
+  (:documentation "Is the given form a special form in language. The
+  default method probably does what you want--it extracts the form's
+  identifier and looks for a special-operator-symbol on its plist."))
 
 (defgeneric macro-form-p (language form)
-  (:documentation "Is the given form a macro form in language."))
+  (:documentation "Is the given form a macro form in language. The
+  default method probably does what you want--it extracts the form's
+  identifier and looks for a macro-symbol on its plist."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; File compiler interface
@@ -110,14 +122,12 @@ implemented by a method on PROCESS-SEXP."
 (defgeneric expand-macro-form (language form environment))
 
 (defmethod process-special-form (language processor form environment)
-  (let ((special-operator (get (identifier language form) (special-operator-symbol language))))
+  (let* ((identifier (identifier language form))
+         (special-operator (find-in-plist identifier (special-operator-symbols language))))
     (funcall special-operator language processor form environment)))
 
-#+(or)(defmethod expand-macro-form :before ((language t) form environment)
-  (format t "Expanding~&~s~%in environment ~s~%" form environment))
-
 (defmethod expand-macro-form (language form environment)
-  (let ((macro-function (get (identifier language form) (macro-symbol language))))
+  (let ((macro-function (find-in-plist (identifier language form) (macro-symbols language))))
     (funcall macro-function form environment)))
 
 (defun fully-expand-macro-form (language form environment)
@@ -139,15 +149,13 @@ implemented by a method on PROCESS-SEXP."
 
 (defmethod special-form-p ((language t) (form cons))
   (let ((identifier (identifier language form)))
-    (and identifier
-	 (get identifier (special-operator-symbol language)))))
+    (and identifier (find-in-plist identifier (special-operator-symbols language)))))
 
 (defmethod macro-form-p ((language t) (form t)) nil)
 
 (defmethod macro-form-p ((language t) (form cons))
   (let ((identifier (identifier language form)))
-    (and identifier
-	 (get identifier (macro-symbol language)))))
+    (and identifier (find-in-plist identifier (macro-symbols language)))))
 
 (defmethod sexp-form-p ((language t) form)
   "Suitable default for languages in which all forms that are not
@@ -173,7 +181,7 @@ characters will need their own specializations of this method."
       `(eval-when (:compile-toplevel :load-toplevel :execute)
 	 (setf (get ',name ',special-operator-symbol)
 	       (lambda (,language ,processor ,whole ,environment)
-		 (declare (ignorable ,environment))
+		 (declare (ignorable ,environment ,language ,processor))
 		 (handler-case
 		     (destructuring-bind (,@parameters) (rest ,whole)
 		       ,@body)
@@ -249,9 +257,13 @@ parameter to eat up the macro name."
     (setf (readtable-case readtable) :preserve)
     readtable))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helpers for top-level language functions and macros.
+
+(defun find-in-plist (identifier symbols)
+  "Find the first value on an identifier's plist given a list of
+symbols. This is used to implement inheritance of special forms "
+  (some (lambda (sym) (get identifier sym)) symbols))
 
 (defun emit-for-language (language-class sexp)
   (let ((lang (make-instance language-class)))

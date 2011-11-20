@@ -4,7 +4,7 @@
 
 (in-package :cl-user)
 
-(defpackage :text-languages
+(defpackage :monkeylib-text-languages
   (:use :cl
 	:text-output
 	:com.gigamonkeys.macro-utilities)
@@ -28,7 +28,7 @@
    :input-readtable
    :language
    :macro-form-p
-   :macro-symbol
+   :macro-symbols
    :output-file-type
    :parse-&environment
    :process
@@ -38,7 +38,7 @@
    :sexp->ops
    :sexp-form-p
    :special-form-p
-   :special-operator-symbol
+   :special-operator-symbols
    :top-level-environment
 
    ;; Don't like these names. Should probably be a single GF named

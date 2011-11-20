@@ -1,6 +1,6 @@
 ;;; Copyright (c) 2005-2001, Peter Seibel. All rights reserved. See COPYING for details.
 
-(in-package :text-languages)
+(in-package :monkeylib-text-languages)
 
 (defun generate (language input &optional output)
   "Input can be a sexp, a string, or a stream. Output can be an output
