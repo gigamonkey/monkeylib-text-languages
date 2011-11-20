@@ -2,37 +2,60 @@
 
 (in-package :text-languages)
 
-(defun generate-from-file (language input &optional output)
-  (unless output
-    (setf output (make-pathname :type (output-file-type language) :defaults input))
-    (assert (not (equal (probe-file input) (probe-file output)))))
-  (with-open-file (in input)
-    (with-open-file (out output :direction :output :if-exists :supersede)
-      (generate-from/to-streams language in out))))
-
-(defun generate-from-string (language string)
-  (with-input-from-string (in string)
-    (with-output-to-string (out)
-      (generate-from/to-streams language in out))))
-
-(defun generate-from/to-streams (language in out)
-  (let ((*readtable* (input-readtable language))
-	(*package* (input-package language))
-	(env (top-level-environment language)))
-    (with-text-output (out :pretty t)
-      (loop with processor = (get-pretty-printer)
-	 for form = (read in nil in)
-	 while (not (eql form in)) do
-	   (process language processor form env)
-	   (newline processor)
-	   (newline processor)))))
-
-(defun generate-from-sexp (language sexp)
-  (with-output-to-string (out)
+(defun generate (language input &optional output)
+  "Input can be a sexp, a string, or a stream. Output can be an output
+stream, a string, a pathname, NIL, or T. The latter two are
+interpreted as they are by CL:FORMAT, NIL generates a string, T send
+to *STANDARD-OUTPUT*."
+  (let ((sexp (input-to-sexp language input))
+        (out (output-to-stream output)))
     (let ((env (top-level-environment language)))
       (with-text-output (out :pretty t)
-	(let ((processor (get-pretty-printer)))
-	  (process language processor sexp env))))))
+        (process language (get-pretty-printer) sexp env))
+      (prog1
+          (finish out)
+        (when (or (pathnamep output) (stringp output))
+          (close out))))))
 
+(defgeneric input-to-sexp (language input)
+  (:documentation "Convert input to a sexp.")
 
+  (:method (language (input cons)) input)
 
+  (:method (language (input string))
+    (with-input-from-string (in input)
+      (input-to-sexp language in)))
+
+  (:method (language (input pathname))
+    (with-open-file (in input)
+      (input-to-sexp language in)))
+
+  (:method (language (input stream))
+    (let ((*readtable* (input-readtable language))
+          (*package* (input-package language)))
+      (loop for form = (read input nil input)
+         while (not (eql form input)) collect form))))
+
+(defgeneric output-to-stream (output)
+  (:documentation "Convert output to a stream.")
+
+  (:method ((output stream)) output)
+
+  (:method ((output string)) (output-to-stream (pathname output)))
+
+  (:method ((output pathname))
+    (open output :direction :output :if-exists :supersede))
+
+  (:method ((output (eql nil))) (make-string-output-stream))
+
+  (:method ((output (eql t))) *standard-output*))
+
+(defgeneric finish (stream)
+  (:documentation "Close the output stream or return the result as necessary.")
+  (:method ((stream string-stream)) (get-output-stream-string stream))
+  (:method ((stream file-stream))
+    (finish-output stream)
+    (truename stream))
+  (:method ((stream stream))
+    (finish-output stream)
+    stream))
